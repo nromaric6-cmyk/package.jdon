@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Signal — Liquidity Sweep + FVG</title>
+<link rel="manifest" href="/manifest.json" />
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: rgba(255,255,255,0.02);
+    --border: rgba(255,255,255,0.08);
+    --cyan: #22d3ee;
+    --amber: #f59e0b;
+    --emerald: #34d399;
+    --rose: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: #e4e4e7;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 40px 20px; }
+  .eyebrow {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em;
+    color: rgba(34,211,238,0.7); font-family: monospace; margin-bottom: 6px;
+  }
+  h1 { font-size: 24px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { font-size: 13px; color: #71717a; margin: 0 0 28px; }
+  .grid { display: flex; gap: 12px; margin-bottom: 16px; }
+  .slot { flex: 1; min-width: 0; }
+  .slot-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: #71717a; font-family: monospace; margin-bottom: 6px;
+  }
+  .drop {
+    position: relative; height: 112px; border-radius: 8px;
+    border: 1px dashed var(--border); background: rgba(255,255,255,0.015);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; overflow: hidden; text-align: center;
+  }
+  .drop.filled { border-color: rgba(34,211,238,0.4); background: rgba(34,211,238,0.04); }
+  .drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
+  .drop span.hint { font-size: 11px; color: #52525b; padding: 0 8px; }
+  .drop span.ok { position: relative; z-index: 1; font-size: 11px; color: #67e8f9; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 4px; }
+  input[type=file] { display: none; }
+  button.primary {
+    width: 100%; height: 44px; border-radius: 8px; border: none;
+    background: var(--cyan); color: #000; font-weight: 600; font-size: 14px;
+    cursor: pointer; margin-top: 4px;
+  }
+  button.primary:disabled { background: rgba(255,255,255,0.06); color: #52525b; cursor: not-allowed; }
+  .error {
+    margin-top: 12px; padding: 12px 14px; border-radius: 8px;
+    border: 1px solid rgba(251,113,133,0.3); background: rgba(251,113,133,0.06);
+    font-size: 13px; color: var(--rose);
+  }
+  .result { margin-top: 24px; border-radius: 10px; border: 1px solid var(--border); padding: 16px; }
+  .result.rejected { border-color: rgba(251,113,133,0.3); background: rgba(251,113,133,0.05); }
+  .result.ok { border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.05); }
+  .row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .bias { font-size: 14px; font-weight: 600; text-transform: capitalize; }
+  .badge { font-size: 11px; font-family: monospace; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; }
+  .badge.high { background: rgba(52,211,153,0.15); color: var(--emerald); }
+  .badge.low, .badge.rejected { background: rgba(251,113,133,0.15); color: var(--rose); }
+  .badge.medium { background: rgba(245,158,11,0.15); color: var(--amber); }
+  .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; font-family: monospace; font-size: 13px; margin-bottom: 10px; }
+  .stats .label { font-size: 10px; color: #71717a; text-transform: uppercase; }
+  .reason { font-size: 13px; color: #a1a1aa; line-height: 1.5; }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.3); border-top-color: #000; border-radius: 50%; animation: sp 0.7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Liquidity Sweep + FVG Confluence</div>
+  <h1>Analyseur de signal</h1>
+  <p class="sub">Dépose tes 3 captures. Rejet automatique sous 3 confluences ou RR &lt; 2.</p>
+
+  <div class="grid">
+    <div class="slot">
+      <div class="slot-label">15 min</div>
+      <label class="drop" id="drop-htf">
+        <span class="hint">glisser / choisir</span>
+        <input type="file" accept="image/*" id="file-htf" />
+      </label>
+    </div>
+    <div class="slot">
+      <div class="slot-label">5 min</div>
+      <label class="drop" id="drop-mtf">
+        <span class="hint">glisser / choisir</span>
+        <input type="file" accept="image/*" id="file-mtf" />
+      </label>
+    </div>
+    <div class="slot">
+      <div class="slot-label">1 min</div>
+      <label class="drop" id="drop-ltf">
+        <span class="hint">glisser / choisir</span>
+        <input type="file" accept="image/*" id="file-ltf" />
+      </label>
+    </div>
+  </div>
+
+  <button class="primary" id="analyze-btn" disabled>Analyser le setup</button>
+  <div id="error" style="display:none" class="error"></div>
+  <div id="result" style="display:none"></div>
+</div>
+
+<script>
+  const files = { htf: null, mtf: null, ltf: null };
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  ["htf", "mtf", "ltf"].forEach((key) => {
+    const input = document.getElementById(`file-${key}`);
+    const drop = document.getElementById(`drop-${key}`);
+    input.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      files[key] = file;
+      drop.classList.add("filled");
+      drop.innerHTML = `<img src="${URL.createObjectURL(file)}"><span class="ok">chargé</span>`;
+      drop.appendChild(input);
+      checkReady();
+    });
+  });
+
+  function checkReady() {
+    const btn = document.getElementById("analyze-btn");
+    btn.disabled = !(files.htf && files.mtf && files.ltf);
+  }
+
+  document.getElementById("analyze-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("analyze-btn");
+    const errBox = document.getElementById("error");
+    const resultBox = document.getElementById("result");
+    errBox.style.display = "none";
+    resultBox.style.display = "none";
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Analyse en cours';
+
+    try {
+      const [htfB64, mtfB64, ltfB64] = await Promise.all([
+        fileToBase64(files.htf), fileToBase64(files.mtf), fileToBase64(files.ltf)
+      ]);
+
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          htf: { base64: htfB64, mediaType: files.htf.type || "image/png" },
+          mtf: { base64: mtfB64, mediaType: files.mtf.type || "image/png" },
+          ltf: { base64: ltfB64, mediaType: files.ltf.type || "image/png" },
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      renderResult(data);
+    } catch (err) {
+      errBox.textContent = err.message || "Erreur inconnue";
+      errBox.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Analyser le setup";
+    }
+  });
+
+  function renderResult(r) {
+    const box = document.getElementById("result");
+    const confidenceClass = r.rejected ? "rejected" : (r.confidence || "low");
+    box.className = "result " + (r.rejected ? "rejected" : "ok");
+    box.innerHTML = `
+      <div class="row-top">
+        <span class="bias">${r.bias || "neutre"}</span>
+        <span class="badge ${confidenceClass}">${r.rejected ? "rejeté" : "confiance " + (r.confidence || "—")}</span>
+      </div>
+      ${!r.rejected && r.entry != null ? `
+      <div class="stats">
+        <div><div class="label">Entrée</div>${r.entry}</div>
+        <div><div class="label">SL</div>${r.sl}</div>
+        <div><div class="label">TP</div>${r.tp}</div>
+        <div><div class="label">RR</div>1:${r.rr}</div>
+      </div>` : ""}
+      <div class="reason">${r.reason || ""}</div>
+    `;
+    box.style.display = "block";
+  }
+</script>
+</body>
+</html>
